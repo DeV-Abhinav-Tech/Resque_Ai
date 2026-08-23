@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { MapContainer, TileLayer, CircleMarker, Circle, Polyline, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, CircleMarker, Circle, Polyline, Popup, useMap, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
 import { api } from '@/lib/api'
@@ -55,6 +55,18 @@ const INDIAN_HAZARD_PREDICTIONS = [
   { id: 'fl_ind_2', hazard_type: 'FLOOD', latitude: 18.9388, longitude: 72.8353, probability: 0.68, expected_severity: 'HIGH', model_version: 'monsoon_urban_v1.2', title: 'Mumbai Coastal Monsoon Surge' },
   { id: 'eq_ind_2', hazard_type: 'EARTHQUAKE', latitude: 28.6139, longitude: 77.2090, probability: 0.58, expected_severity: 'MEDIUM', model_version: 'delhi_fault_v2.0', title: 'Delhi-NCR Ridge Seismic Tremors' },
 ]
+
+
+function MapEventsHandler({ onMapClick }: { onMapClick?: (lat: number, lon: number) => void }) {
+  useMapEvents({
+    click(e) {
+      if (onMapClick) {
+        onMapClick(e.latlng.lat, e.latlng.lng)
+      }
+    },
+  })
+  return null
+}
 
 function MapRecenter({ center }: { center: [number, number] | null }) {
   const map = useMap()
@@ -208,7 +220,7 @@ function getSeverityBadge(severity: string): string {
   return colors[severity] || 'bg-slate-100 text-slate-800'
 }
 
-export function HazardMapWidget() {
+export function HazardMapWidget({ onMapClick }: { onMapClick?: (lat: number, lon: number) => void }) {
   const [selectedHazard, setSelectedHazard] = useState<'EARTHQUAKE' | 'FLOOD' | 'HURRICANE' | 'ALL'>('ALL')
   const [tileMode, setTileMode] = useState<keyof typeof MAP_TILES>('CARTO_DARK')
   const [clickedFeature, setClickedFeature] = useState<any>(null)
@@ -303,6 +315,7 @@ export function HazardMapWidget() {
           className="h-full w-full"
         >
           <MapRecenter center={selectedAreaCenter} />
+          <MapEventsHandler onMapClick={onMapClick} />
           <TileLayer attribution={currentTile.attribution} url={currentTile.url} />
 
           {/* Citizen & Operator Reported Incidents Overlay */}

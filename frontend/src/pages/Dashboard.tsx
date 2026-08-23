@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { RiskTrendChartWidget } from '@/components/disaster/RiskTrendChartWidget'
+import { LocationRiskProfileWidget } from '@/components/map/LocationRiskProfileWidget'
 import { api } from '@/lib/api'
 import { StatCard } from '@/components/ui/StatCard'
 import { HazardMapWidget } from '@/components/map/HazardMapWidget'
@@ -38,6 +41,7 @@ interface RecentEvent {
 }
 
 export function Dashboard() {
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lon: number } | null>(null)
   const { openModal } = useSosStore()
   const { openBroadcastModal } = useDisasterResponseStore()
   const { openReportModal } = useIncidentStore()
@@ -167,16 +171,23 @@ export function Dashboard() {
       {/* Authentic Real-Time Live Data Ingestion Widget (USGS & Open-Meteo) */}
       <RealtimeSyncWidget />
 
-      {/* 3D Map and Side Panel */}
+
+      {/* 3D Map, Location Risk Profile & Live Alerts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <HazardMapWidget />
+          <HazardMapWidget onMapClick={(lat, lon) => setSelectedCoords({ lat, lon })} />
+          <RiskTrendChartWidget />
         </div>
         <div className="space-y-6">
+          <LocationRiskProfileWidget
+            selectedCoords={selectedCoords}
+            onLocationSelect={(lat, lon) => setSelectedCoords({ lat, lon })}
+          />
           <AlertsWidget alerts={alerts ?? []} />
           <RecentEventsWidget events={events ?? []} />
         </div>
       </div>
+
 
       {/* Global Multi-API Feature Extraction Panel (NASA EONET & Air Quality) */}
       <GlobalApiFeedsWidget />

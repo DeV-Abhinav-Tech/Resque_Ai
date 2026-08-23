@@ -162,3 +162,6 @@ playwright-report/
 
 # TypeScript
 *.tsbuildinfo
+
+# Allow frontend/src/lib/
+!frontend/src/lib/

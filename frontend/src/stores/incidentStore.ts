@@ -1,4 +1,14 @@
 import { create } from 'zustand'
+import { db, isConfigured } from '../lib/firebase'
+import { 
+  collection, 
+  addDoc, 
+  updateDoc, 
+  doc, 
+  onSnapshot, 
+  query, 
+  orderBy 
+} from 'firebase/firestore'
 
 export interface ReportedIncident {
   id: string
@@ -69,25 +79,74 @@ export const useIncidentStore = create<IncidentState>((set, get) => ({
   openReportModal: () => set({ isReportModalOpen: true }),
   closeReportModal: () => set({ isReportModalOpen: false }),
 
-  addIncident: (data) => {
-    const newIncident: ReportedIncident = {
+  addIncident: async (data) => {
+    const newIncident = {
       ...data,
-      id: `inc_${Date.now()}`,
       reportedAt: new Date().toISOString(),
-      status: 'REPORTED',
+      status: 'REPORTED' as const,
     }
-    set((state) => ({
-      incidents: [newIncident, ...state.incidents],
-      isReportModalOpen: false,
-    }))
+
+    if (isConfigured && db) {
+      try {
+        await addDoc(collection(db, 'incidents'), newIncident)
+      } catch (error) {
+        console.error('Failed to save incident to Firebase:', error)
+      }
+    } else {
+      const localIncident: ReportedIncident = {
+        ...newIncident,
+        id: `inc_${Date.now()}`,
+      }
+      set((state) => ({
+        incidents: [localIncident, ...state.incidents],
+      }))
+    }
+    set({ isReportModalOpen: false })
   },
 
-  updateIncidentStatus: (id, status) => {
-    set((state) => ({
-      incidents: state.incidents.map((inc) => (inc.id === id ? { ...inc, status } : inc)),
-    }))
+  updateIncidentStatus: async (id, status) => {
+    if (isConfigured && db) {
+      try {
+        const docRef = doc(db, 'incidents', id)
+        await updateDoc(docRef, { status })
+      } catch (error) {
+        console.error('Failed to update incident in Firebase:', error)
+      }
+    } else {
+      set((state) => ({
+        incidents: state.incidents.map((inc) => (inc.id === id ? { ...inc, status } : inc)),
+      }))
+    }
   },
 
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSelectedArea: (areaName, center) => set({ selectedAreaName: areaName, selectedAreaCenter: center }),
 }))
+
+// If Firebase is configured, listen to Firestore in real-time
+if (isConfigured && db) {
+  const q = query(collection(db, 'incidents'), orderBy('reportedAt', 'desc'))
+  onSnapshot(q, (snapshot) => {
+    const incidents: ReportedIncident[] = []
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      incidents.push({
+        id: doc.id,
+        title: data.title,
+        description: data.description,
+        hazardCategory: data.hazardCategory,
+        severity: data.severity,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        reporterName: data.reporterName,
+        contactPhone: data.contactPhone,
+        photoUrl: data.photoUrl,
+        reportedAt: data.reportedAt,
+        status: data.status,
+      })
+    })
+    useIncidentStore.setState({ 
+      incidents: incidents.length > 0 ? incidents : INITIAL_INCIDENTS 
+    })
+  })
+}
